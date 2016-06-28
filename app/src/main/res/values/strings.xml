@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Device Discovery</string>
+    <string name="service_id">com.project.imran.devicediscovery.service</string>
 </resources>

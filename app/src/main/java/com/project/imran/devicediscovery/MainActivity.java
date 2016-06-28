@@ -27,6 +27,9 @@ import com.google.android.gms.nearby.connection.AppMetadata;
 import com.google.android.gms.nearby.connection.Connections;
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
@@ -35,6 +38,8 @@ public class MainActivity extends AppCompatActivity implements
         Connections.ConnectionRequestListener,
         Connections.MessageListener,
         Connections.EndpointDiscoveryListener {
+
+    private boolean mIsHost = false;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -75,8 +80,79 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
+    public void onStart() {
+        super.onStart();
+        mGoogleApiClient.connect();
+    }
+
+    public void onStop() {
+        super.onStop();
+        if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.disconnect();
+        }
+    }
+
+    @Override
     public void onConnectionSuspended(int i) {
         debugLog("onConnectionSuspended: " + i);
+    }
+
+    private boolean isConnectedToNetwork() {
+        ConnectivityManager connManager =
+                (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        NetworkInfo info = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        return info != null && info.isConnectedOrConnecting();
+    }
+
+    private void startAdvertising() {
+        if (!isConnectedToNetwork()) {
+            debugLog("startAdvertising: Not connected to network");
+            return;
+        }
+
+        mIsHost = true;
+
+        // Prompt other network devices to install the application
+        List<AppIdentifier> appIdentifierList= new ArrayList<>();
+        appIdentifierList.add(new AppIdentifier(getPackageName()));
+        AppMetadata appMetadata = new AppMetadata(appIdentifierList);
+
+        long NO_TIMEOUT = 0L;
+
+        String name = null;
+        Nearby.Connections.startAdvertising(mGoogleApiClient, name, appMetadata, NO_TIMEOUT, this)
+                .setResultCallback(new ResultCallback<Connections.StartAdvertisingResult>() {
+                    @Override
+                    public void onResult(Connections.StartAdvertisingResult result) {
+                        if (result.getStatus().isSuccess()) {
+                            debugLog("startAdvertising:onResult: SUCCESS");
+                            // Update view visibility
+                        } else {
+                            debugLog("startAdvertising:onResult: FAILURE ");
+
+                            int statusCode = result.getStatus().getStatusCode();
+                            if (statusCode == ConnectionsStatusCodes.STATUS_ALREADY_ADVERTISING){
+                                debugLog("Already advertising");
+                            } else {
+                                // Update View Visibility
+                            }
+                        }
+                    }
+                });
+    }
+
+    public void onClick(View v) {
+        switch(v.getId()) {
+            case R.id.button_advertise:
+                startAdvertising();
+                break;
+            case R.id.button_discover:
+                // startDiscovery();
+                break;
+            case R.id.button_send:
+                // sendMessage();
+                break;
+        }
     }
 
     private void debugLog(String msg) {
