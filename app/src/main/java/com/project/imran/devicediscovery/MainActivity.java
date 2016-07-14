@@ -58,7 +58,10 @@ public class MainActivity extends AppCompatActivity implements
     // Connecting to the Nearby Connections API
     private GoogleApiClient mGoogleApiClient;
 
+    private List<Endpoint> myEndpoints = new ArrayList<>();
+
     private TextView mDebugInfo;
+    private ListView deviceList;
 
     private int mState = STATE_IDLE;
 
@@ -77,7 +80,10 @@ public class MainActivity extends AppCompatActivity implements
 
         // Debug text view
         mDebugInfo = (TextView) findViewById(R.id.debug_text);
-//        mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
+        mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
+
+        // Device list
+        deviceList = (ListView) findViewById(R.id.device_list);
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -85,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements
                 .addApi(Nearby.CONNECTIONS_API)
                 .build();
 
-        updateViewVisiblity(STATE_READY);
+        updateViewVisibility(STATE_READY);
     }
 
     @Override
@@ -140,7 +146,7 @@ public class MainActivity extends AppCompatActivity implements
                     public void onResult(Connections.StartAdvertisingResult result) {
                         if (result.getStatus().isSuccess()) {
                             debugLog("startAdvertising:onResult: SUCCESS");
-                            updateViewVisiblity(STATE_ADVERTISING);
+                            updateViewVisibility(STATE_ADVERTISING);
                         } else {
                             debugLog("startAdvertising:onResult: FAILURE ");
 
@@ -148,7 +154,7 @@ public class MainActivity extends AppCompatActivity implements
                             if (statusCode == ConnectionsStatusCodes.STATUS_ALREADY_ADVERTISING){
                                 debugLog("Already advertising");
                             } else {
-                                updateViewVisiblity(STATE_READY);
+                                updateViewVisibility(STATE_READY);
                             }
                         }
                     }
@@ -171,7 +177,9 @@ public class MainActivity extends AppCompatActivity implements
                     public void onResult(@NonNull Status status) {
                         if (status.isSuccess()) {
                             debugLog("startDiscovery:onResult: SUCCESS");
-                            updateViewVisiblity(STATE_DISCOVERING);
+                            updateViewVisibility(STATE_DISCOVERING);
+
+
                         } else {
                             debugLog("startAdvertising:onResult: FAILURE ");
 
@@ -179,7 +187,7 @@ public class MainActivity extends AppCompatActivity implements
                             if (statusCode == ConnectionsStatusCodes.STATUS_ALREADY_DISCOVERING){
                                 debugLog("Already discovering");
                             } else {
-                                updateViewVisiblity(STATE_READY);
+                                updateViewVisibility(STATE_READY);
                             }
                         }
                     }
@@ -200,7 +208,7 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
-    private void updateViewVisiblity(int newState) {
+    private void updateViewVisibility(int newState) {
         mState = newState;
 
         switch(mState) {
@@ -234,8 +242,14 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onEndpointFound(String s, String s1, String s2, String s3) {
+    public void onEndpointFound(final String endpointId, String deviceId,
+                                String serviceId, final String endpointName) {
+        debugLog("Endpoint found:");
+        debugLog("Endpoint ID: " + endpointId + ", Endpoint Name: " + endpointName);
+        debugLog("Device ID: " + deviceId);
+        debugLog("Service ID: : " + serviceId);
 
+        myEndpoints.add(new Endpoint(endpointId, endpointName, deviceId, serviceId));
     }
 
     @Override
