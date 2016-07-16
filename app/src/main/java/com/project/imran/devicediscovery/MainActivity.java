@@ -1,6 +1,9 @@
 package com.project.imran.devicediscovery;
 
+import android.content.Context;
 import android.support.annotation.NonNull;
+import android.support.annotation.IdRes;
+import android.support.annotation.LayoutRes;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -15,6 +18,7 @@ import android.support.annotation.IntDef;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -30,6 +34,7 @@ import com.google.android.gms.nearby.connection.AppMetadata;
 import com.google.android.gms.nearby.connection.Connections;
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -58,10 +63,12 @@ public class MainActivity extends AppCompatActivity implements
     // Connecting to the Nearby Connections API
     private GoogleApiClient mGoogleApiClient;
 
+    // Displaying found endpoints
+    private ListView endpointList;
     private List<Endpoint> myEndpoints = new ArrayList<>();
+    private ArrayAdapter<Endpoint> endpointAdapter;
 
     private TextView mDebugInfo;
-    private ListView deviceList;
 
     private int mState = STATE_IDLE;
 
@@ -83,7 +90,9 @@ public class MainActivity extends AppCompatActivity implements
         mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
 
         // Device list
-        deviceList = (ListView) findViewById(R.id.device_list);
+        endpointAdapter = new MyEndpointAdapter(MainActivity.this, R.layout.endpoint_view, myEndpoints);
+        endpointList = (ListView) findViewById(R.id.device_list);
+        endpointList.setAdapter(endpointAdapter);
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -236,6 +245,10 @@ public class MainActivity extends AppCompatActivity implements
         mDebugInfo.append("\n" + msg);
     }
 
+    private void updateEndpointList() {
+        endpointAdapter.notifyDataSetChanged();
+    }
+
     @Override
     public void onConnectionRequest(String s, String s1, String s2, byte[] bytes) {
 
@@ -250,11 +263,12 @@ public class MainActivity extends AppCompatActivity implements
         debugLog("Service ID: : " + serviceId);
 
         myEndpoints.add(new Endpoint(endpointId, endpointName, deviceId, serviceId));
+        updateEndpointList();
     }
 
     @Override
-    public void onEndpointLost(String s) {
-
+    public void onEndpointLost(String mOtherEndpointId) {
+        debugLog("Lost connection with endpoint: " + mOtherEndpointId);
     }
 
     @Override
