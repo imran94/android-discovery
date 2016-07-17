@@ -68,7 +68,9 @@ public class MainActivity extends AppCompatActivity implements
     private List<Endpoint> myEndpoints = new ArrayList<>();
     private ArrayAdapter<Endpoint> endpointAdapter;
 
+    private EditText mMessageText;
     private TextView mDebugInfo;
+    private AlertDialog mConnectionRequestDialog;
 
     private int mState = STATE_IDLE;
 
@@ -84,6 +86,8 @@ public class MainActivity extends AppCompatActivity implements
         findViewById(R.id.button_advertise).setOnClickListener(this);
         findViewById(R.id.button_discover).setOnClickListener(this);
         findViewById(R.id.button_send).setOnClickListener(this);
+
+        mMessageText = (EditText) findViewById(R.id.edittext_message);
 
         // Debug text view
         mDebugInfo = (TextView) findViewById(R.id.debug_text);
@@ -187,8 +191,6 @@ public class MainActivity extends AppCompatActivity implements
                         if (status.isSuccess()) {
                             debugLog("startDiscovery:onResult: SUCCESS");
                             updateViewVisibility(STATE_DISCOVERING);
-
-
                         } else {
                             debugLog("startAdvertising:onResult: FAILURE ");
 
@@ -201,6 +203,77 @@ public class MainActivity extends AppCompatActivity implements
                         }
                     }
                 });
+    }
+
+    private void sendMessage() {
+        String msg = mMessageText.getText().toString();
+        Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, msg.getBytes());
+    }
+
+    private void connectTo(String endpointId, final String endpointName) {
+        debugLog("connectTo: " + endpointId + ", " + endpointName);
+
+        String myName = null;
+        byte[] myPayload = null;
+        Nearby.Connections.sendConnectionRequest(mGoogleApiClient, myName, endpointId, myPayload,
+                new Connections.ConnectionResponseCallback(){
+                    @Override
+                    public void onConnectionResponse(String endpointId, Status status, byte[] bytes) {
+                        debugLog("onConnectionResponse: " + endpointId + ", " + status);
+                        if (status.isSuccess()) {
+                            debugLog("onConnectionResponse: " + endpointId + " SUCCESS");
+                            Toast.makeText(MainActivity.this, "Connected to " + endpointName,
+                                    Toast.LENGTH_SHORT).show();
+
+                            mOtherEndpointId = endpointId;
+                            updateViewVisibility(STATE_CONNECTED);
+                        } else {
+                            debugLog("onConnectionResponse: " + endpointId + "FAILED");
+                        }
+                    }
+                }, this);
+    }
+
+    @Override
+    public void onConnectionRequest(final String endpointId, String deviceId,
+                                    String endpointName, byte[] payload) {
+        debugLog("onConnectionRequest: " + endpointId + ", " + endpointName);
+
+        // Device is advertising and has received a connection request. Show dialog
+        // asking for the user's response.
+        mConnectionRequestDialog = new AlertDialog.Builder(this)
+                .setTitle("Connection Request")
+                .setMessage("Do you want to connect to " + endpointName + "?")
+                .setCancelable(false)
+                .setPositiveButton("Connect", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        byte[] payload = null;
+                        Nearby.Connections.acceptConnectionRequest(mGoogleApiClient, endpointId,
+                                payload, MainActivity.this)
+                                .setResultCallback(new ResultCallback<Status>() {
+                                    @Override
+                                    public void onResult(@NonNull Status status) {
+                                        if (status.isSuccess()) {
+                                            debugLog("acceptConnectionRequest: SUCCESS");
+
+                                            mOtherEndpointId = endpointId;
+                                            updateViewVisibility(STATE_CONNECTED);
+                                        } else {
+                                            debugLog("acceptConnectionRequest: FAILED");
+                                        }
+                                    }
+                                });
+                    }
+                })
+                .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        Nearby.Connections.rejectConnectionRequest(mGoogleApiClient, endpointId);
+                    }
+                }).create();
+
+        mConnectionRequestDialog.show();
     }
 
     public void onClick(View v) {
@@ -250,11 +323,6 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onConnectionRequest(String s, String s1, String s2, byte[] bytes) {
-
-    }
-
-    @Override
     public void onEndpointFound(final String endpointId, String deviceId,
                                 String serviceId, final String endpointName) {
         debugLog("Endpoint found:");
@@ -268,17 +336,19 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onEndpointLost(String mOtherEndpointId) {
+        // An endpoint previously available for connection is no longer there
         debugLog("Lost connection with endpoint: " + mOtherEndpointId);
     }
 
     @Override
-    public void onMessageReceived(String s, byte[] bytes, boolean b) {
-
+    public void onMessageReceived(String endpointId, byte[] payload, boolean isReliable) {
+        debugLog("onMessageReceived: " + endpointId + ":" + new String(payload));
     }
 
     @Override
-    public void onDisconnected(String s) {
-
+    public void onDisconnected(String endpointId) {
+        debugLog("onDisconnected:" + endpointId);
+        updateViewVisibility(STATE_READY);
     }
 
     @Override
