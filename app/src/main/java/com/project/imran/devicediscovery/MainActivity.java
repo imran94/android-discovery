@@ -67,7 +67,6 @@ public class MainActivity extends AppCompatActivity implements
     private ArrayAdapter<Endpoint> endpointAdapter;
 
     private EditText mMessageText;
-    private TextView mDebugInfo;
     private AlertDialog mConnectionRequestDialog;
 
     private int mState = STATE_IDLE;
@@ -87,10 +86,6 @@ public class MainActivity extends AppCompatActivity implements
         findViewById(R.id.button_new).setOnClickListener(this);
 
         mMessageText = (EditText) findViewById(R.id.edittext_message);
-
-        // Debug text view
-        mDebugInfo = (TextView) findViewById(R.id.debug_text);
-        mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -348,10 +343,12 @@ public class MainActivity extends AppCompatActivity implements
         switch(mState) {
             case STATE_IDLE:
                 findViewById(R.id.layout_nearby_buttons).setVisibility(View.GONE);
+                findViewById(R.id.device_list).setVisibility(View.VISIBLE);
                 findViewById(R.id.layout_message).setVisibility(View.GONE);
                 break;
             case STATE_READY:
                 findViewById(R.id.layout_nearby_buttons).setVisibility(View.VISIBLE);
+                findViewById(R.id.device_list).setVisibility(View.VISIBLE);
                 findViewById(R.id.layout_message).setVisibility(View.GONE);
                 break;
             case STATE_DISCOVERING:
@@ -360,6 +357,7 @@ public class MainActivity extends AppCompatActivity implements
                 break;
             case STATE_CONNECTED:
                 findViewById(R.id.layout_nearby_buttons).setVisibility(View.VISIBLE);
+                findViewById(R.id.device_list).setVisibility(View.GONE);
                 findViewById(R.id.layout_message).setVisibility(View.VISIBLE);
                 break;
         }
@@ -367,7 +365,6 @@ public class MainActivity extends AppCompatActivity implements
 
     private void debugLog(String msg) {
         Log.d(TAG, msg);
-        mDebugInfo.append("\n" + msg);
     }
 
     private void updateEndpointList() {
