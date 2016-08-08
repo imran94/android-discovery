@@ -1,23 +1,22 @@
 package com.project.imran.devicediscovery;
 
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.support.annotation.IdRes;
+import android.content.Intent;
 import android.support.annotation.LayoutRes;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.Bundle;
-import android.support.annotation.IntDef;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -34,10 +33,9 @@ import com.google.android.gms.nearby.connection.AppMetadata;
 import com.google.android.gms.nearby.connection.Connections;
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 
-import java.lang.reflect.Array;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
@@ -61,7 +59,7 @@ public class MainActivity extends AppCompatActivity implements
     private static final int STATE_CONNECTED = 1027;    // Found a peer
 
     // Connecting to the Nearby Connections API
-    private GoogleApiClient mGoogleApiClient;
+    public GoogleApiClient mGoogleApiClient;
 
     // Displaying found endpoints
     private ListView endpointList;
@@ -75,7 +73,7 @@ public class MainActivity extends AppCompatActivity implements
     private int mState = STATE_IDLE;
 
     // Endpoint ID of the connected peer, used for messaging
-    private String mOtherEndpointId;
+    public String mOtherEndpointId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +84,7 @@ public class MainActivity extends AppCompatActivity implements
         findViewById(R.id.button_advertise).setOnClickListener(this);
         findViewById(R.id.button_discover).setOnClickListener(this);
         findViewById(R.id.button_send).setOnClickListener(this);
+        findViewById(R.id.button_new).setOnClickListener(this);
 
         mMessageText = (EditText) findViewById(R.id.edittext_message);
 
@@ -93,18 +92,62 @@ public class MainActivity extends AppCompatActivity implements
         mDebugInfo = (TextView) findViewById(R.id.debug_text);
         mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
 
-        // Device list
-        endpointAdapter = new MyEndpointAdapter(MainActivity.this, R.layout.endpoint_view, myEndpoints);
-        endpointList = (ListView) findViewById(R.id.device_list);
-        endpointList.setAdapter(endpointAdapter);
-
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(Nearby.CONNECTIONS_API)
                 .build();
 
+        // Device list
+        endpointAdapter = new MyEndpointAdapter(MainActivity.this, R.layout.endpoint_view, myEndpoints);
+        endpointList = (ListView) findViewById(R.id.device_list);
+        endpointList.setAdapter(endpointAdapter);
+
         updateViewVisibility(STATE_READY);
+    }
+
+    public class MyEndpointAdapter extends ArrayAdapter<Endpoint> {
+        private List<Endpoint> myEndpoints;
+        private int endpoint_view;
+
+        public MyEndpointAdapter(Context context, @LayoutRes int resource, List<Endpoint> objects) {
+            super(context, resource, objects);
+
+            endpoint_view = resource;
+            myEndpoints = objects;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            final Endpoint currentEndpoint = myEndpoints.get(position);
+
+            if (convertView == null) {
+                LayoutInflater inflater = LayoutInflater.from(getContext());
+                convertView = inflater.inflate(R.layout.endpoint_view, null);
+            }
+
+            //Fill the view
+            TextView endpointId = (TextView) convertView.findViewById(R.id.endpoint_id);
+            endpointId.setText(currentEndpoint.getEndpointId());
+
+            TextView endpointName = (TextView) convertView.findViewById(R.id.endpoint_name);
+            endpointName.setText(currentEndpoint.getEndpointName());
+
+            TextView deviceId = (TextView) convertView.findViewById(R.id.device_id);
+            deviceId.setText(currentEndpoint.getDeviceId());
+
+            TextView serviceId = (TextView) convertView.findViewById(R.id.service_id);
+            serviceId.setText(currentEndpoint.getServiceId());
+
+            convertView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    connectTo(currentEndpoint.getEndpointId(), currentEndpoint.getEndpointName());
+                }
+            });
+
+            return convertView;
+        }
     }
 
     @Override
@@ -122,7 +165,8 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-
+        debugLog("onConnected");
+        updateViewVisibility(STATE_READY);
     }
 
     @Override
@@ -145,7 +189,7 @@ public class MainActivity extends AppCompatActivity implements
 
         mIsHost = true;
 
-        // Prompt other network devices to install the application
+         // Prompt other network devices to install the application
         List<AppIdentifier> appIdentifierList= new ArrayList<>();
         appIdentifierList.add(new AppIdentifier(getPackageName()));
         AppMetadata appMetadata = new AppMetadata(appIdentifierList);
@@ -210,7 +254,12 @@ public class MainActivity extends AppCompatActivity implements
         Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, msg.getBytes());
     }
 
-    private void connectTo(String endpointId, final String endpointName) {
+    private void startNewActivity() {
+        Intent intent = new Intent(this, NewActivity.class);
+        startActivity(intent);
+    }
+
+    public void connectTo(String endpointId, final String endpointName) {
         debugLog("connectTo: " + endpointId + ", " + endpointName);
 
         String myName = null;
@@ -285,7 +334,10 @@ public class MainActivity extends AppCompatActivity implements
                  startDiscovery();
                 break;
             case R.id.button_send:
-                // sendMessage();
+                 sendMessage();
+                break;
+            case R.id.button_new:
+                startNewActivity();
                 break;
         }
     }
@@ -353,6 +405,6 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
+        debugLog("onConnectionFailed: " + connectionResult);
     }
 }

@@ -77,6 +77,12 @@
             android:layout_height="wrap_content"
             android:text="Discover" />
 
+        <Button
+            android:id="@+id/button_new"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="New Activity" />
+
     </LinearLayout>
 
     <ListView
