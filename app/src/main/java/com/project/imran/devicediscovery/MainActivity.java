@@ -2,6 +2,11 @@ package com.project.imran.devicediscovery;
 
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioRecord;
+import android.media.AudioTrack;
+import android.media.MediaRecorder;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -73,6 +78,18 @@ public class MainActivity extends AppCompatActivity implements
 
     // Endpoint ID of the connected peer, used for messaging
     public String mOtherEndpointId;
+
+    public byte[] buffer;
+    private AudioRecord recorder;
+    private AudioTrack speaker;
+
+    // Audio configuration
+    private int sampleRate = 44100000;
+    private int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
+    private int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+    int minBuffSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+
+    private boolean isConnectedToEndpoint = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -265,6 +282,7 @@ public class MainActivity extends AppCompatActivity implements
                     public void onConnectionResponse(String endpointId, Status status, byte[] bytes) {
                         debugLog("onConnectionResponse: " + endpointId + ", " + status);
                         if (status.isSuccess()) {
+                            isConnectedToEndpoint = true;
                             debugLog("onConnectionResponse: " + endpointId + " SUCCESS");
                             Toast.makeText(MainActivity.this, "Connected to " + endpointName,
                                     Toast.LENGTH_SHORT).show();
@@ -301,6 +319,7 @@ public class MainActivity extends AppCompatActivity implements
                                         if (status.isSuccess()) {
                                             debugLog("acceptConnectionRequest: SUCCESS");
 
+                                            isConnectedToEndpoint = true;
                                             mOtherEndpointId = endpointId;
                                             updateViewVisibility(STATE_CONNECTED);
                                         } else {
@@ -318,6 +337,40 @@ public class MainActivity extends AppCompatActivity implements
                 }).create();
 
         mConnectionRequestDialog.show();
+    }
+
+    public void startVoiceChat() {
+        Thread streamThread = new Thread(new Runnable() {
+           @Override
+            public void run() {
+               byte[] buffer = new byte[minBuffSize];
+               Log.d(TAG, "Buffer created of size " + minBuffSize);
+
+               recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                                            sampleRate,
+                                            channelConfig,
+                                            audioFormat,
+                                            minBuffSize);
+               speaker = new AudioTrack(
+                       AudioManager.STREAM_MUSIC,
+                       sampleRate,
+                       channelConfig,
+                       audioFormat,
+                       minBuffSize,
+                       AudioTrack.MODE_STREAM);
+
+               speaker.play();
+
+               while(isConnectedToEndpoint) {
+                   minBuffSize = recorder.read(buffer, 0, buffer.length);
+                   Nearby.Connections.sendUnreliableMessage(mGoogleApiClient,
+                                                            mOtherEndpointId,
+                                                            buffer);
+               }
+           }
+        });
+
+        streamThread.start();
     }
 
     public void onClick(View v) {
@@ -391,12 +444,17 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onMessageReceived(String endpointId, byte[] payload, boolean isReliable) {
+        if (!isReliable) {
+            speaker.write(payload, 0, minBuffSize);
+        }
+
         debugLog("onMessageReceived: " + endpointId + ":" + new String(payload));
     }
 
     @Override
     public void onDisconnected(String endpointId) {
         debugLog("onDisconnected:" + endpointId);
+        isConnectedToEndpoint = false;
         updateViewVisibility(STATE_READY);
     }
 
