@@ -47,7 +47,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private boolean mIsHost = false;
 
-    private static final String TAG = "sup";
+    private static final String TAG = "MainActivity";
 
     private static final long TIMEOUT_ADVERTISE = 1000L * 30L;
     private static final long TIMEOUT_DISCOVER = 1000L * 30L;

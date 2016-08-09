@@ -15,14 +15,20 @@
             android:name="com.google.android.gms.nearby.connection.SERVICE_ID"
             android:value="@string/service_id" />
 
-        <activity android:name=".MainActivity">
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="landscape">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".NewActivity"></activity>
+
+        <activity
+            android:name=".NewActivity"
+            android:screenOrientation="landscape"></activity>
     </application>
 
 </manifest>

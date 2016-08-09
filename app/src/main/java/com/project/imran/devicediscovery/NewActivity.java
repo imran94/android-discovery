@@ -5,6 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -16,21 +17,33 @@ import java.util.List;
 public class NewActivity extends AppCompatActivity {
 
     private static final String TAG = "sup";
-    private TextView mDebugInfo;
+    private GameView myGameView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_new);
 
-        mDebugInfo = (TextView) findViewById(R.id.debug_text);
-        mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
-
-        debugLog("Started New Activity");
+        myGameView = new GameView(this);
+        setContentView(myGameView);
     }
 
-    private void debugLog(String msg) {
-        Log.d(TAG, msg);
-        mDebugInfo.append("\n" + msg);
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        // De-allocate significant memory-consuming objects here
+
+        myGameView.onPause();
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // Re-allocate objects de-allocated in onPause() here
+
+        myGameView.onResume();
+    }
+
+
 }
