@@ -84,10 +84,10 @@ public class MainActivity extends AppCompatActivity implements
     private AudioTrack speaker;
 
     // Audio configuration
-    private int sampleRate = 44100000;
-    private int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
-    private int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-    int minBuffSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+    private int sampleRate;
+    private int channelConfig;
+    private int audioFormat;
+    int minBuffSize;
 
     private boolean isConnectedToEndpoint = false;
 
@@ -115,7 +115,14 @@ public class MainActivity extends AppCompatActivity implements
         endpointList = (ListView) findViewById(R.id.device_list);
         endpointList.setAdapter(endpointAdapter);
 
+        // Audio config
+        sampleRate = 8000;
+        channelConfig = AudioFormat.CHANNEL_OUT_STEREO;
+        audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+        minBuffSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+
         updateViewVisibility(STATE_READY);
+        debugLog("minBuffSize: " + minBuffSize);
     }
 
     public class MyEndpointAdapter extends ArrayAdapter<Endpoint> {
@@ -288,6 +295,7 @@ public class MainActivity extends AppCompatActivity implements
                                     Toast.LENGTH_SHORT).show();
 
                             mOtherEndpointId = endpointId;
+                            startVoiceChat();
                             updateViewVisibility(STATE_CONNECTED);
                         } else {
                             debugLog("onConnectionResponse: " + endpointId + "FAILED");
@@ -321,6 +329,7 @@ public class MainActivity extends AppCompatActivity implements
 
                                             isConnectedToEndpoint = true;
                                             mOtherEndpointId = endpointId;
+                                            startVoiceChat();
                                             updateViewVisibility(STATE_CONNECTED);
                                         } else {
                                             debugLog("acceptConnectionRequest: FAILED");
@@ -344,7 +353,6 @@ public class MainActivity extends AppCompatActivity implements
            @Override
             public void run() {
                byte[] buffer = new byte[minBuffSize];
-               Log.d(TAG, "Buffer created of size " + minBuffSize);
 
                recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                                             sampleRate,
@@ -363,7 +371,9 @@ public class MainActivity extends AppCompatActivity implements
 
                while(isConnectedToEndpoint) {
                    minBuffSize = recorder.read(buffer, 0, buffer.length);
-                   Nearby.Connections.sendUnreliableMessage(mGoogleApiClient,
+                   debugLog("Sending minBuffSize: " + minBuffSize);
+                   debugLog("Sending buffer: " + buffer.length);
+                   Nearby.Connections.sendReliableMessage(mGoogleApiClient,
                                                             mOtherEndpointId,
                                                             buffer);
                }
@@ -444,11 +454,9 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onMessageReceived(String endpointId, byte[] payload, boolean isReliable) {
-        if (!isReliable) {
-            speaker.write(payload, 0, minBuffSize);
-        }
+        speaker.write(payload, 0, minBuffSize);
 
-        debugLog("onMessageReceived: " + endpointId + ":" + new String(payload));
+//        debugLog("onMessageReceived: " + endpointId + ":" + new String(payload));
     }
 
     @Override
