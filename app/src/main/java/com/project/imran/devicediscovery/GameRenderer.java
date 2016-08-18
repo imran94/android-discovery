@@ -38,12 +38,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
         starfield = new Starfield();
+
+        starfield.loadTexture(R.drawable.Starfield, context);
     }
 
     @Override
     public void onSurfaceChanged(GL10 unused, int width, int height) {
         GLES20.glViewport(0, 0,width,height);
+
         float ratio = (float) width / height;
+
         Matrix.frustumM(mProjectionMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
     }
 
@@ -58,9 +62,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
-        starfield.draw(mMVPMatrix);
+        starfield.draw(mMVPMatrix, starfieldScroll);
 
-        if (starfieldScroll == Float.MAX_VALUE) {
+        // Reset scroll variable if it gets maxed out
+        if (starfieldScroll >= Float.MAX_VALUE) {
             starfieldScroll = 0;
         }
 
@@ -68,8 +73,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     public static int loadShader(int type, String shaderCode) {
-        int shader = GLES20.glCreateShader(type);
 
+        int shader = GLES20.glCreateShader(type);
         GLES20.glShaderSource(shader, shaderCode);
         GLES20.glCompileShader(shader);
 
