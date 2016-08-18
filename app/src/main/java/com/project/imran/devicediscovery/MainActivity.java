@@ -90,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements
     int minBuffSize;
 
     private boolean isConnectedToEndpoint = false;
+    private boolean mRecording = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,6 +102,7 @@ public class MainActivity extends AppCompatActivity implements
         findViewById(R.id.button_discover).setOnClickListener(this);
         findViewById(R.id.button_send).setOnClickListener(this);
         findViewById(R.id.button_new).setOnClickListener(this);
+        findViewById(R.id.button_record).setOnClickListener(this);
 
         mMessageText = (EditText) findViewById(R.id.edittext_message);
 
@@ -117,12 +119,14 @@ public class MainActivity extends AppCompatActivity implements
 
         // Audio config
         sampleRate = 8000;
-        channelConfig = AudioFormat.CHANNEL_OUT_STEREO;
+        channelConfig = AudioFormat.CHANNEL_IN_MONO;
         audioFormat = AudioFormat.ENCODING_PCM_16BIT;
         minBuffSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
 
         updateViewVisibility(STATE_READY);
         debugLog("minBuffSize: " + minBuffSize);
+
+        startRecording();
     }
 
     public class MyEndpointAdapter extends ArrayAdapter<Endpoint> {
@@ -295,7 +299,7 @@ public class MainActivity extends AppCompatActivity implements
                                     Toast.LENGTH_SHORT).show();
 
                             mOtherEndpointId = endpointId;
-                            startVoiceChat();
+//                            startVoiceChat();
                             updateViewVisibility(STATE_CONNECTED);
                         } else {
                             debugLog("onConnectionResponse: " + endpointId + "FAILED");
@@ -329,7 +333,7 @@ public class MainActivity extends AppCompatActivity implements
 
                                             isConnectedToEndpoint = true;
                                             mOtherEndpointId = endpointId;
-                                            startVoiceChat();
+//                                            startVoiceChat();
                                             updateViewVisibility(STATE_CONNECTED);
                                         } else {
                                             debugLog("acceptConnectionRequest: FAILED");
@@ -348,11 +352,11 @@ public class MainActivity extends AppCompatActivity implements
         mConnectionRequestDialog.show();
     }
 
-    public void startVoiceChat() {
+    public void startRecording() {
         Thread streamThread = new Thread(new Runnable() {
            @Override
             public void run() {
-               byte[] buffer = new byte[minBuffSize];
+               short[] buffer = new short[minBuffSize];
 
                recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                                             sampleRate,
@@ -360,7 +364,7 @@ public class MainActivity extends AppCompatActivity implements
                                             audioFormat,
                                             minBuffSize);
                speaker = new AudioTrack(
-                       AudioManager.STREAM_MUSIC,
+                       AudioManager.STREAM_VOICE_CALL,
                        sampleRate,
                        channelConfig,
                        audioFormat,
@@ -369,13 +373,10 @@ public class MainActivity extends AppCompatActivity implements
 
                speaker.play();
 
-               while(isConnectedToEndpoint) {
+               while(mRecording) {
                    minBuffSize = recorder.read(buffer, 0, buffer.length);
-                   debugLog("Sending minBuffSize: " + minBuffSize);
-                   debugLog("Sending buffer: " + buffer.length);
-                   Nearby.Connections.sendReliableMessage(mGoogleApiClient,
-                                                            mOtherEndpointId,
-                                                            buffer);
+                   speaker.write(buffer, 0, buffer.length);
+                   debugLog("Buffer.length: " + minBuffSize);
                }
            }
         });
@@ -396,6 +397,11 @@ public class MainActivity extends AppCompatActivity implements
                 break;
             case R.id.button_new:
                 startNewActivity();
+                break;
+            case R.id.button_record:
+                mRecording = !mRecording;
+                if (mRecording)
+                    startRecording();
                 break;
         }
     }
