@@ -170,5 +170,5 @@ public class Hero {
         GLES20.glDisableVertexAttribArray(mPositionHandle);
     }
 
-    
+
 }

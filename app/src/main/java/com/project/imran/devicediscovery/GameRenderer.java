@@ -19,18 +19,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public static float[] mMVPMatrix = new float[16];
     public static float[] mProjectionMatrix = new float[16];
     public static float[] mViewMatrix = new float[16];
+    public static float[] mTranslationMatrix = new float[16];
 
     private Starfield starfield;
-//    private Hero hero;
+    private Hero hero;
 
-    float starfieldScroll;
-    float heroSprite;
+    float starfieldScroll = 0;
+    float heroSprite = 0;
 
     public GameRenderer(Context gameContext) {
         context = gameContext;
-
-        starfieldScroll = 0;
-        heroSprite = 0;
     }
 
     @Override
@@ -38,13 +36,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
         starfield = new Starfield();
+        hero = new Hero();
 
         starfield.loadTexture(R.drawable.Starfield, context);
+        hero.loadTexture(R.drawable.ships, context);
     }
 
     @Override
     public void onSurfaceChanged(GL10 unused, int width, int height) {
-        GLES20.glViewport(0, 0,width,height);
+        GLES20.glViewport(0, 0, width, height);
 
         float ratio = (float) width / height;
 
@@ -64,6 +64,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         starfield.draw(mMVPMatrix, starfieldScroll);
 
+        GLES20.glEnable(GLES20.GL_BLEND);
+            GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+            Matrix.setIdentityM(mTranslationMatrix, 0);
+            Matrix.translateM(mTranslationMatrix, 0, 0, -.5f, 0);
+
+            Matrix.multiplyMM(matrix, 0, mMVPMatrix, 0, mTranslationMatrix, 0);
+
+            hero.draw(matrix, 0, 0);
+        GLES20.glDisable(GLES20.GL_BLEND);
+
         // Reset scroll variable if it gets maxed out
         if (starfieldScroll >= Float.MAX_VALUE) {
             starfieldScroll = 0;
@@ -75,6 +85,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public static int loadShader(int type, String shaderCode) {
 
         int shader = GLES20.glCreateShader(type);
+
+        // Add the source code to the shader and compile it
         GLES20.glShaderSource(shader, shaderCode);
         GLES20.glCompileShader(shader);
 
