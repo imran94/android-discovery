@@ -79,19 +79,6 @@ public class MainActivity extends AppCompatActivity implements
     // Endpoint ID of the connected peer, used for messaging
     public String mOtherEndpointId;
 
-    public byte[] buffer;
-    private AudioRecord recorder;
-    private AudioTrack speaker;
-
-    // Audio configuration
-    private int sampleRate;
-    private int channelConfig;
-    private int audioFormat;
-    int minBuffSize;
-
-    private boolean isConnectedToEndpoint = false;
-    private boolean mRecording = false;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -116,17 +103,6 @@ public class MainActivity extends AppCompatActivity implements
         endpointAdapter = new MyEndpointAdapter(MainActivity.this, R.layout.endpoint_view, myEndpoints);
         endpointList = (ListView) findViewById(R.id.device_list);
         endpointList.setAdapter(endpointAdapter);
-
-        // Audio config
-        sampleRate = 8000;
-        channelConfig = AudioFormat.CHANNEL_IN_MONO;
-        audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-        minBuffSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
-
-        updateViewVisibility(STATE_READY);
-        debugLog("minBuffSize: " + minBuffSize);
-
-        startRecording();
     }
 
     public class MyEndpointAdapter extends ArrayAdapter<Endpoint> {
@@ -293,13 +269,11 @@ public class MainActivity extends AppCompatActivity implements
                     public void onConnectionResponse(String endpointId, Status status, byte[] bytes) {
                         debugLog("onConnectionResponse: " + endpointId + ", " + status);
                         if (status.isSuccess()) {
-                            isConnectedToEndpoint = true;
                             debugLog("onConnectionResponse: " + endpointId + " SUCCESS");
                             Toast.makeText(MainActivity.this, "Connected to " + endpointName,
                                     Toast.LENGTH_SHORT).show();
 
                             mOtherEndpointId = endpointId;
-//                            startVoiceChat();
                             updateViewVisibility(STATE_CONNECTED);
                         } else {
                             debugLog("onConnectionResponse: " + endpointId + "FAILED");
@@ -331,9 +305,7 @@ public class MainActivity extends AppCompatActivity implements
                                         if (status.isSuccess()) {
                                             debugLog("acceptConnectionRequest: SUCCESS");
 
-                                            isConnectedToEndpoint = true;
                                             mOtherEndpointId = endpointId;
-//                                            startVoiceChat();
                                             updateViewVisibility(STATE_CONNECTED);
                                         } else {
                                             debugLog("acceptConnectionRequest: FAILED");
@@ -352,38 +324,6 @@ public class MainActivity extends AppCompatActivity implements
         mConnectionRequestDialog.show();
     }
 
-    public void startRecording() {
-        Thread streamThread = new Thread(new Runnable() {
-           @Override
-            public void run() {
-               short[] buffer = new short[minBuffSize];
-
-               recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
-                                            sampleRate,
-                                            channelConfig,
-                                            audioFormat,
-                                            minBuffSize);
-               speaker = new AudioTrack(
-                       AudioManager.STREAM_VOICE_CALL,
-                       sampleRate,
-                       channelConfig,
-                       audioFormat,
-                       minBuffSize,
-                       AudioTrack.MODE_STREAM);
-
-               speaker.play();
-
-               while(mRecording) {
-                   minBuffSize = recorder.read(buffer, 0, buffer.length);
-                   speaker.write(buffer, 0, buffer.length);
-                   debugLog("Buffer.length: " + minBuffSize);
-               }
-           }
-        });
-
-        streamThread.start();
-    }
-
     public void onClick(View v) {
         switch(v.getId()) {
             case R.id.button_advertise:
@@ -397,11 +337,6 @@ public class MainActivity extends AppCompatActivity implements
                 break;
             case R.id.button_new:
                 startNewActivity();
-                break;
-            case R.id.button_record:
-                mRecording = !mRecording;
-                if (mRecording)
-                    startRecording();
                 break;
         }
     }
@@ -460,15 +395,12 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onMessageReceived(String endpointId, byte[] payload, boolean isReliable) {
-        speaker.write(payload, 0, minBuffSize);
-
-//        debugLog("onMessageReceived: " + endpointId + ":" + new String(payload));
+        debugLog("onMessageReceived: " + endpointId + ":" + new String(payload));
     }
 
     @Override
     public void onDisconnected(String endpointId) {
         debugLog("onDisconnected:" + endpointId);
-        isConnectedToEndpoint = false;
         updateViewVisibility(STATE_READY);
     }
 
