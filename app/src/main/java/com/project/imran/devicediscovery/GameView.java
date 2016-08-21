@@ -27,6 +27,16 @@ public class GameView extends GLSurfaceView {
 
         Log.d(TAG, x + ", " + y);
 
-        return super.onTouchEvent(evt);
+        switch(evt.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                if (x < getWidth() / 2) {
+                    gameRenderer.setHeroMove(gameRenderer.getHeroMove() + .1f);
+                }
+                if (x > getWidth() / 2) {
+                    gameRenderer.setHeroMove(gameRenderer.getHeroMove() - .1f);
+                }
+        }
+
+        return true;
     }
 }

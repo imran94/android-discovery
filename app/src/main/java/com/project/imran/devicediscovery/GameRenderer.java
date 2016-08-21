@@ -5,6 +5,7 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.util.Log;
+import android.view.MotionEvent;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -25,7 +26,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private Hero hero;
 
     float starfieldScroll = 0;
+
     float heroSprite = 0;
+
+    float heroMove = 0;
 
     public GameRenderer(Context gameContext) {
         context = gameContext;
@@ -39,7 +43,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         hero = new Hero();
 
         starfield.loadTexture(R.drawable.Starfield, context);
-        hero.loadTexture(R.drawable.ships, context);
+        hero.loadTexture(R.drawable.ship, context);
     }
 
     @Override
@@ -66,8 +70,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         GLES20.glEnable(GLES20.GL_BLEND);
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
             Matrix.setIdentityM(mTranslationMatrix, 0);
-            Matrix.translateM(mTranslationMatrix, 0, 0, -.5f, 0);
+            Matrix.translateM(mTranslationMatrix, 0, heroMove, -.5f, 0);
 
             Matrix.multiplyMM(matrix, 0, mMVPMatrix, 0, mTranslationMatrix, 0);
 
@@ -99,5 +104,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             Log.e(TAG, glOperation + ": glError " + error);
             throw new RuntimeException(glOperation + ": glError " + error);
         }
+    }
+
+    public void setHeroMove(float movement){
+        heroMove = movement;
+    }
+    public float getHeroMove() {
+        return heroMove;
     }
 }
