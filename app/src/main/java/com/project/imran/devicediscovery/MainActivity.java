@@ -89,7 +89,6 @@ public class MainActivity extends AppCompatActivity implements
         findViewById(R.id.button_discover).setOnClickListener(this);
         findViewById(R.id.button_send).setOnClickListener(this);
         findViewById(R.id.button_new).setOnClickListener(this);
-        findViewById(R.id.button_record).setOnClickListener(this);
 
         mMessageText = (EditText) findViewById(R.id.edittext_message);
 

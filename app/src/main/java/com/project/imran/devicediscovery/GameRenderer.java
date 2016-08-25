@@ -66,7 +66,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
-        starfield.draw(mMVPMatrix, starfieldScroll);
+//        starfield.draw(mMVPMatrix, starfieldScroll);
 
         GLES20.glEnable(GLES20.GL_BLEND);
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
@@ -76,7 +76,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             Matrix.multiplyMM(matrix, 0, mMVPMatrix, 0, mTranslationMatrix, 0);
 
-            hero.draw(matrix, 0, 0);
+//            hero.draw(matrix, 0, 0);
         GLES20.glDisable(GLES20.GL_BLEND);
 
         // Reset scroll variable if it gets maxed out
