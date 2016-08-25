@@ -23,7 +23,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public static float[] mTranslationMatrix = new float[16];
 
     private Starfield starfield;
-    private Hero hero;
+
+    public Hero mHero;
+    public float y;
+    public float x;
+
+    public Hero otherHero;
+    public float otherX;
+    public float otherY;
 
     float starfieldScroll = 0;
 
@@ -37,26 +44,33 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
+        // Set the background color
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
         starfield = new Starfield();
-        hero = new Hero();
+        mHero = new Hero();
+        otherHero = new Hero();
+
+        x = y = otherX = otherY = 0;
 
         starfield.loadTexture(R.drawable.starfield, context);
-        hero.loadTexture(R.drawable.ship, context);
+//        mHero.loadTexture(R.drawable.ship, context);
     }
 
     @Override
     public void onSurfaceChanged(GL10 unused, int width, int height) {
         GLES20.glViewport(0, 0, width, height);
 
-        float ratio = (float) width / height;
-
-        Matrix.frustumM(mProjectionMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
+//        float ratio = (float) width / height;
+//
+//        Matrix.frustumM(mProjectionMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
     }
 
     @Override
     public void onDrawFrame(GL10 unused) {
+        // Redraw background color
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+
         float[] matrix = new float[16];
 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
@@ -66,7 +80,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
-//        starfield.draw(mMVPMatrix, starfieldScroll);
+
+////        starfield.draw(mMVPMatrix, starfieldScroll);
 
         GLES20.glEnable(GLES20.GL_BLEND);
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
@@ -76,15 +91,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             Matrix.multiplyMM(matrix, 0, mMVPMatrix, 0, mTranslationMatrix, 0);
 
-//            hero.draw(matrix, 0, 0);
+            mHero.draw(matrix, x, y);
+            otherHero.draw(matrix, otherX, otherY);
         GLES20.glDisable(GLES20.GL_BLEND);
-
-        // Reset scroll variable if it gets maxed out
-        if (starfieldScroll >= Float.MAX_VALUE) {
-            starfieldScroll = 0;
-        }
-
-        starfieldScroll += .001;
+//
+//        // Reset scroll variable if it gets maxed out
+//        if (starfieldScroll >= Float.MAX_VALUE) {
+//            starfieldScroll = 0;
+//        }
+//
+//        starfieldScroll += .001;
     }
 
     public static int loadShader(int type, String shaderCode) {
