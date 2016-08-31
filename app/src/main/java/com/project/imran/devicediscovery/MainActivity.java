@@ -2,6 +2,7 @@ package com.project.imran.devicediscovery;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
@@ -50,6 +51,8 @@ public class MainActivity extends AppCompatActivity implements
         Connections.MessageListener,
         Connections.EndpointDiscoveryListener {
 
+    public static MainActivity instance;
+
     private boolean mIsHost = false;
 
     private static final String TAG = "MainActivity";
@@ -64,7 +67,7 @@ public class MainActivity extends AppCompatActivity implements
     private static final int STATE_CONNECTED = 1027;    // Found a peer
 
     // Connecting to the Nearby Connections API
-    public GoogleApiClient mGoogleApiClient;
+    public static GoogleApiClient mGoogleApiClient;
 
     // Displaying found endpoints
     private ListView endpointList;
@@ -77,12 +80,16 @@ public class MainActivity extends AppCompatActivity implements
     private int mState = STATE_IDLE;
 
     // Endpoint ID of the connected peer, used for messaging
-    public String mOtherEndpointId;
+    public static String mOtherEndpointId;
+
+    private TextView mDebugInfo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
 
         // Button Listeners
         findViewById(R.id.button_advertise).setOnClickListener(this);
@@ -102,6 +109,11 @@ public class MainActivity extends AppCompatActivity implements
         endpointAdapter = new MyEndpointAdapter(MainActivity.this, R.layout.endpoint_view, myEndpoints);
         endpointList = (ListView) findViewById(R.id.device_list);
         endpointList.setAdapter(endpointAdapter);
+
+        mDebugInfo = (TextView) findViewById(R.id.debug_text);
+        mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
+
+        instance = new MainActivity();
     }
 
     public class MyEndpointAdapter extends ArrayAdapter<Endpoint> {
@@ -252,6 +264,10 @@ public class MainActivity extends AppCompatActivity implements
         Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, msg.getBytes());
     }
 
+    private void sendMessage(String message) {
+        Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, message.getBytes());
+    }
+
     private void startNewActivity() {
         Intent intent = new Intent(this, NewActivity.class);
         startActivity(intent);
@@ -359,14 +375,15 @@ public class MainActivity extends AppCompatActivity implements
             case STATE_ADVERTISING:
                 break;
             case STATE_CONNECTED:
-                findViewById(R.id.layout_nearby_buttons).setVisibility(View.VISIBLE);
+                findViewById(R.id.layout_nearby_buttons).setVisibility(View.GONE);
                 findViewById(R.id.device_list).setVisibility(View.GONE);
                 findViewById(R.id.layout_message).setVisibility(View.VISIBLE);
                 break;
         }
     }
 
-    private void debugLog(String msg) {
+    public void debugLog(String msg) {
+        mDebugInfo.append("\n" + msg);
         Log.d(TAG, msg);
     }
 

@@ -42,8 +42,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         starfield = new Starfield();
         hero = new Hero();
 
-        starfield.loadTexture(R.drawable.starfield, context);
-        hero.loadTexture(R.drawable.ship, context);
     }
 
     @Override

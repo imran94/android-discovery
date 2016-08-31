@@ -3,22 +3,37 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
     android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical"
     tools:context="com.project.imran.devicediscovery.MainActivity">
 
     <RelativeLayout
         android:layout_width="234dp"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content">
 
         <Button
             android:id="@+id/button_new"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Start game" />
+            android:text="Start game"
+            android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true" />
+
+        <TextView
+            android:id="@+id/debug_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/button_new"
+            android:padding="5dp"
+            android:scrollbars="vertical"
+            android:fadeScrollbars="false"
+            android:lines="10"
+            android:maxLines="10"
+            android:gravity="bottom"
+            android:background="#FFFFFF" />
     </RelativeLayout>
 
     <LinearLayout
