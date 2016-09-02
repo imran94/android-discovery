@@ -25,6 +25,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -41,7 +42,10 @@ import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
@@ -53,7 +57,7 @@ public class MainActivity extends AppCompatActivity implements
 
     public static MainActivity instance;
 
-    private boolean mIsHost = false;
+    public static boolean mIsHost = false;
 
     private static final String TAG = "MainActivity";
 
@@ -84,18 +88,28 @@ public class MainActivity extends AppCompatActivity implements
 
     private TextView mDebugInfo;
 
+    Map<Integer, Integer> imageMap = new HashMap<>();
+    ImageView mImageView;
+    TextView wrongCharView;
+    TextView keyWordView;
+    TextView turnIndicator;
+    EditText guessText;
+    HangmanData gameData;
+    boolean hasTurn = false;
+
+    String[] words = {"malaysia","america","russia","france","britain"};
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-
         // Button Listeners
         findViewById(R.id.button_advertise).setOnClickListener(this);
         findViewById(R.id.button_discover).setOnClickListener(this);
         findViewById(R.id.button_send).setOnClickListener(this);
-        findViewById(R.id.button_new).setOnClickListener(this);
+        findViewById(R.id.button_guess).setOnClickListener(this);
 
         mMessageText = (EditText) findViewById(R.id.edittext_message);
 
@@ -112,6 +126,14 @@ public class MainActivity extends AppCompatActivity implements
 
         mDebugInfo = (TextView) findViewById(R.id.debug_text);
         mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
+
+        setImages();
+        guessText = (EditText) findViewById(R.id.guess_text);
+        mImageView = (ImageView) findViewById(R.id.image_hangman);
+        wrongCharView = (TextView) findViewById(R.id.wrong_text);
+        wrongCharView.setMovementMethod(new ScrollingMovementMethod());
+        keyWordView = (TextView) findViewById(R.id.key_text);
+        turnIndicator = (TextView) findViewById(R.id.turn_indicator);
 
         instance = new MainActivity();
     }
@@ -160,6 +182,20 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
+    void setImages() {
+        imageMap.put(0, R.drawable.hangman0);
+        imageMap.put(1, R.drawable.hangman1);
+        imageMap.put(2, R.drawable.hangman2);
+        imageMap.put(3, R.drawable.hangman3);
+        imageMap.put(4, R.drawable.hangman4);
+        imageMap.put(5, R.drawable.hangman5);
+        imageMap.put(6, R.drawable.hangman6);
+        imageMap.put(7, R.drawable.hangman7);
+        imageMap.put(8, R.drawable.hangman8);
+        imageMap.put(9, R.drawable.hangman9);
+        imageMap.put(10, R.drawable.hangman10);
+    }
+
     @Override
     public void onStart() {
         super.onStart();
@@ -196,8 +232,6 @@ public class MainActivity extends AppCompatActivity implements
             debugLog("startAdvertising: Not connected to network");
             return;
         }
-
-        mIsHost = true;
 
          // Prompt other network devices to install the application
         List<AppIdentifier> appIdentifierList= new ArrayList<>();
@@ -264,13 +298,15 @@ public class MainActivity extends AppCompatActivity implements
         Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, msg.getBytes());
     }
 
-    private void sendMessage(String message) {
-        Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, message.getBytes());
+    private void sendMessage(byte[] payload) {
+        Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, payload);
+        debugLog("Sent message: " + new String(payload));
     }
 
-    private void startNewActivity() {
-        Intent intent = new Intent(this, NewActivity.class);
-        startActivity(intent);
+    private void sendMessage(String message) {
+        Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, message.getBytes());
+        debugLog("Sent message: " + message);
+
     }
 
     public void connectTo(String endpointId, final String endpointName) {
@@ -278,6 +314,7 @@ public class MainActivity extends AppCompatActivity implements
 
         String myName = null;
         byte[] myPayload = null;
+
         Nearby.Connections.sendConnectionRequest(mGoogleApiClient, myName, endpointId, myPayload,
                 new Connections.ConnectionResponseCallback(){
                     @Override
@@ -289,6 +326,8 @@ public class MainActivity extends AppCompatActivity implements
                                     Toast.LENGTH_SHORT).show();
 
                             mOtherEndpointId = endpointId;
+                            mIsHost = true;
+                            startGame();
                             updateViewVisibility(STATE_CONNECTED);
                         } else {
                             debugLog("onConnectionResponse: " + endpointId + "FAILED");
@@ -320,7 +359,9 @@ public class MainActivity extends AppCompatActivity implements
                                         if (status.isSuccess()) {
                                             debugLog("acceptConnectionRequest: SUCCESS");
 
+                                            mIsHost = false;
                                             mOtherEndpointId = endpointId;
+                                            startGame();
                                             updateViewVisibility(STATE_CONNECTED);
                                         } else {
                                             debugLog("acceptConnectionRequest: FAILED");
@@ -350,9 +391,130 @@ public class MainActivity extends AppCompatActivity implements
             case R.id.button_send:
                  sendMessage();
                 break;
-            case R.id.button_new:
-                startNewActivity();
+            case R.id.button_guess:
+                checkGuess();
                 break;
+        }
+    }
+
+    private void startGame() {
+        gameData = new HangmanData();
+        if (mIsHost) {
+            sendMessage(serialize());
+        }
+        updateGameView();
+    }
+
+    private void checkGuess() {
+        if (guessText.getText().length() == 0) return;
+
+        Character guess = guessText.getText().charAt(0);
+        boolean alreadyGuessed = false;
+
+        Iterator<Character> iterator = gameData.wrongChars.iterator();
+        while (iterator.hasNext()) {
+            if (iterator.next() == guess) {
+                alreadyGuessed = true;
+            }
+        }
+
+        iterator = gameData.rightChars.iterator();
+        while (iterator.hasNext()) {
+            if (iterator.next() == guess) {
+                alreadyGuessed = true;
+            }
+        }
+        if (alreadyGuessed) {
+            Toast.makeText(this, "Already guessed." + guess, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (isCorrect(guess)) {
+            gameData.rightChars.add(guess);
+        } else {
+            gameData.wrongChars.add(guess);
+            gameData.imageIndex++;
+        }
+
+        nextTurn();
+    }
+
+    private boolean isCorrect(char guess) {
+        String keyword = words[gameData.wordIndex];
+        for (int i = 0; i < keyword.length(); i++) {
+            char c = keyword.charAt(i);
+
+            if (c == guess)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void nextTurn() {
+        hasTurn = false;
+        sendMessage(serialize());
+        updateGameView();
+        checkWinOrLose();
+    }
+
+    void checkWinOrLose() {
+        boolean lost = false;
+        if (gameData.imageIndex > 10) {
+            turnIndicator.setText("You lose!");
+            lost = true;
+        }
+
+        boolean won = true;
+        String s = keyWordView.getText().toString();
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) == '_') {
+                won = false;
+                turnIndicator.setText("You won!");
+                return;
+            }
+        }
+
+        if (won || lost) {
+            findViewById(R.id.guess_text).setEnabled(false);
+            findViewById(R.id.button_guess).setEnabled(false);
+        }
+    }
+
+    private byte[] serialize() {
+        String s = "0";
+        s+= Integer.toString(gameData.imageIndex);
+        s+= Integer.toString(gameData.wordIndex);
+
+        Iterator<Character> iterator = gameData.wrongChars.iterator();
+        while (iterator.hasNext()) {
+            s += iterator.next();
+        }
+
+        s+= " ";
+
+        iterator = gameData.rightChars.iterator();
+        while(iterator.hasNext()) {
+            s += iterator.next();
+        }
+        s += "/";
+
+        return s.getBytes();
+    }
+
+    private void deserialize(String s) {
+        int i = 0;
+        gameData.imageIndex = (Character.getNumericValue(s.charAt(++i)));
+        gameData.wordIndex = (Character.getNumericValue(s.charAt(++i)));
+
+        gameData.wrongChars.clear();
+        while (s.charAt(++i) != ' ') {
+            gameData.wrongChars.add(s.charAt(i));
+        }
+
+        gameData.rightChars.clear();
+        while(s.charAt(++i) != '/') {
+            gameData.rightChars.add(s.charAt(i));
         }
     }
 
@@ -361,23 +523,27 @@ public class MainActivity extends AppCompatActivity implements
 
         switch(mState) {
             case STATE_IDLE:
+                findViewById(R.id.game_view).setVisibility(View.GONE);
+                findViewById(R.id.lobby_view).setVisibility(View.VISIBLE);
                 findViewById(R.id.layout_nearby_buttons).setVisibility(View.GONE);
-                findViewById(R.id.device_list).setVisibility(View.VISIBLE);
-                findViewById(R.id.layout_message).setVisibility(View.GONE);
                 break;
             case STATE_READY:
-                findViewById(R.id.layout_nearby_buttons).setVisibility(View.VISIBLE);
-                findViewById(R.id.device_list).setVisibility(View.VISIBLE);
-                findViewById(R.id.layout_message).setVisibility(View.GONE);
+                findViewById(R.id.game_view).setVisibility(View.GONE);
+                findViewById(R.id.lobby_view).setVisibility(View.VISIBLE);
+//                findViewById(R.id.layout_nearby_buttons).setVisibility(View.VISIBLE);
+//                findViewById(R.id.device_list).setVisibility(View.VISIBLE);
+//                findViewById(R.id.layout_message).setVisibility(View.GONE);
                 break;
             case STATE_DISCOVERING:
                 break;
             case STATE_ADVERTISING:
                 break;
             case STATE_CONNECTED:
-                findViewById(R.id.layout_nearby_buttons).setVisibility(View.GONE);
-                findViewById(R.id.device_list).setVisibility(View.GONE);
-                findViewById(R.id.layout_message).setVisibility(View.VISIBLE);
+//                findViewById(R.id.layout_nearby_buttons).setVisibility(View.GONE);
+//                findViewById(R.id.device_list).setVisibility(View.GONE);
+//                findViewById(R.id.layout_message).setVisibility(View.VISIBLE);
+                findViewById(R.id.game_view).setVisibility(View.VISIBLE);
+                findViewById(R.id.lobby_view).setVisibility(View.GONE);
                 break;
         }
     }
@@ -411,7 +577,16 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onMessageReceived(String endpointId, byte[] payload, boolean isReliable) {
-        debugLog("onMessageReceived: " + endpointId + ":" + new String(payload));
+        String s = new String(payload);
+        if (s.charAt(0) == '0') {
+            debugLog("Message Received: " + s);
+            deserialize(s);
+            hasTurn = true;
+            updateGameView();
+            checkWinOrLose();
+        } else {
+            debugLog("Message Received: " + s);
+        }
     }
 
     @Override
@@ -423,5 +598,51 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
         debugLog("onConnectionFailed: " + connectionResult);
+    }
+
+    private void updateGameView() {
+        mImageView.setImageResource(imageMap.get(gameData.imageIndex));
+
+        debugLog("Wrongchars:");
+        Iterator<Character> iterator = gameData.wrongChars.iterator();
+        wrongCharView.setText("");
+        while (iterator.hasNext()) {
+            Character c = iterator.next();
+            debugLog(c+"");
+            wrongCharView.append(c+"");
+        }
+
+        debugLog("rightChars:");
+        keyWordView.setText("");
+        String keyword = words[gameData.wordIndex];
+        debugLog("keyword: " + keyword);
+        String s = "";
+        for (int i = 0; i < keyword.length(); i++) {
+            Character placeholder = '_';
+            Character keywordChar = keyword.charAt(i);
+
+            iterator = gameData.rightChars.iterator();
+            while (iterator.hasNext()) {
+                Character c = iterator.next();
+                debugLog(c+"");
+                if (c == keywordChar) {
+                    placeholder = c;
+                    debugLog("c == keywordChar: " + c);
+                }
+            }
+            s += placeholder;
+        }
+        debugLog("keyWordView.String: " + s);
+        keyWordView.setText(s);
+
+        if (hasTurn) {
+            turnIndicator.setText("guess a letter!");
+            findViewById(R.id.guess_text).setEnabled(true);
+            findViewById(R.id.button_guess).setEnabled(true);
+        } else {
+            turnIndicator.setText("waiting for other player's turn");
+            findViewById(R.id.guess_text).setEnabled(false);
+            findViewById(R.id.button_guess).setEnabled(false);
+        }
     }
 }
