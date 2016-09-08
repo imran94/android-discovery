@@ -27,7 +27,7 @@
                 android:id="@+id/wrong_text"
                 android:layout_width="30dp"
                 android:layout_height="150dp"
-                android:textSize="15dp"
+                android:textSize="15sp"
                 android:textAllCaps="true"
                 android:layout_gravity="left"/>
 
@@ -68,6 +68,13 @@
             android:maxLines="5"
             android:background="#e5e1e1" />
 
+        <Button
+            android:id="@+id/button_restart"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Restart"
+            android:layout_gravity="center_horizontal"/>
+
         <LinearLayout
             android:id="@+id/guess_buttons"
             android:layout_width="fill_parent"
@@ -80,7 +87,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:maxLength="1"
-                android:hint="Guess a letter"/>
+                android:hint="Guess a letter"
+                android:inputType="text"/>
             <Button
                 android:id="@+id/button_guess"
                 android:layout_width="wrap_content"
@@ -140,6 +148,25 @@
                 android:layout_height="wrap_content"
                 android:text="Discover" />
         </LinearLayout>
+
+        <RelativeLayout
+            android:id="@+id/loadingPanel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:gravity="center" >
+
+            <ProgressBar
+                android:id="@+id/progress_bar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminate="true" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/progress_bar"
+                android:text="Looking for players"/>
+        </RelativeLayout>
 
         <ListView
             android:layout_width="wrap_content"
