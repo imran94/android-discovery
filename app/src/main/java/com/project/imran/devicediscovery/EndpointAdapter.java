@@ -33,18 +33,8 @@ public class EndpointAdapter extends ArrayAdapter<Endpoint> {
             convertView = inflater.inflate(R.layout.endpoint_view, null);
         }
 
-        //Fill the view
-        TextView endpointId = (TextView) convertView.findViewById(R.id.endpoint_id);
-        endpointId.setText(currentEndpoint.getEndpointId());
-
         TextView endpointName = (TextView) convertView.findViewById(R.id.endpoint_name);
         endpointName.setText(currentEndpoint.getEndpointName());
-
-        TextView deviceId = (TextView) convertView.findViewById(R.id.device_id);
-        deviceId.setText(currentEndpoint.getDeviceId());
-
-        TextView serviceId = (TextView) convertView.findViewById(R.id.service_id);
-        serviceId.setText(currentEndpoint.getServiceId());
 
         return convertView;
     }
