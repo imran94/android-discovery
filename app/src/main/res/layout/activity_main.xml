@@ -63,7 +63,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
-            android:id="@+id/debug_text"
+            android:id="@+id/game_text"
             android:layout_gravity="center_horizontal"
             android:maxLines="5"
             android:background="#e5e1e1" />
@@ -148,5 +148,14 @@
             android:visibility="visible"
             tools:visibility="visible"
             android:background="#f44b3f" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:id="@+id/debug_text"
+            android:layout_gravity="center_horizontal"
+            android:maxLines="5"
+            android:background="#e5e1e1" />
     </LinearLayout>
 </LinearLayout>
