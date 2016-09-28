@@ -56,8 +56,7 @@
             android:text="guess a letter!"
             android:textSize="15dp"
             android:textAllCaps="true"
-            android:textAlignment="center"
-            android:maxLines="1" />
+            android:textAlignment="center" />
 
         <TextView
             android:layout_width="match_parent"
@@ -73,7 +72,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Restart"
-            android:layout_gravity="center_horizontal"/>
+            android:layout_gravity="center_horizontal"
+            android:visibility="gone"/>
 
         <LinearLayout
             android:id="@+id/guess_buttons"
@@ -140,7 +140,8 @@
                 android:id="@+id/button_advertise"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Advertise" />
+                android:text="Advertise"
+                android:visibility="gone"/>
 
             <Button
                 android:id="@+id/button_discover"
@@ -148,6 +149,14 @@
                 android:layout_height="wrap_content"
                 android:text="Discover" />
         </LinearLayout>
+
+        <ListView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/device_list"
+            android:visibility="visible"
+            tools:visibility="visible"
+            android:background="#f44b3f" />
 
         <RelativeLayout
             android:id="@+id/loadingPanel"
@@ -167,14 +176,6 @@
                 android:layout_below="@id/progress_bar"
                 android:text="Looking for players"/>
         </RelativeLayout>
-
-        <ListView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/device_list"
-            android:visibility="visible"
-            tools:visibility="visible"
-            android:background="#f44b3f" />
 
         <TextView
             android:layout_width="match_parent"

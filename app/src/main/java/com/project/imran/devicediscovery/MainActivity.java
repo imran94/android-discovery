@@ -10,6 +10,7 @@ import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
+import android.os.CountDownTimer;
 import android.os.Vibrator;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
@@ -95,6 +96,7 @@ public class MainActivity extends AppCompatActivity implements
     public static String mOtherEndpointName;
 
     private TextView mDebugInfo;
+    private TextView mGameText;
 
     Map<Integer, Integer> imageMap = new HashMap<>();
     ImageView mImageView;
@@ -104,12 +106,14 @@ public class MainActivity extends AppCompatActivity implements
     EditText guessText;
     HangmanData gameData;
     boolean hasTurn = false;
-    char mostRecent;
 
     String[] words = {"malaysia","america","russia","france","britain"};
 
     MediaPlayer notification, success, failure;
     Vibrator vibrator;
+
+    final long DISCOVER_TIMEOUT = 10000L;
+    CountDownTimer discoveryTimer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,11 +126,10 @@ public class MainActivity extends AppCompatActivity implements
         findViewById(R.id.button_discover).setOnClickListener(this);
         findViewById(R.id.button_send).setOnClickListener(this);
         findViewById(R.id.button_guess).setOnClickListener(this);
+        findViewById(R.id.button_restart).setOnClickListener(this);
 
         mMessageText = (EditText) findViewById(R.id.edittext_message);
 
-        // ATTENTION: This "addApi(AppIndex.API)"was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
@@ -140,7 +143,7 @@ public class MainActivity extends AppCompatActivity implements
 
         mDebugInfo = (TextView) findViewById(R.id.debug_text);
         mDebugInfo.setMovementMethod(new ScrollingMovementMethod());
-
+        mGameText = (TextView) findViewById(R.id.game_text);
         setImages();
         guessText = (EditText) findViewById(R.id.guess_text);
         mImageView = (ImageView) findViewById(R.id.image_hangman);
@@ -148,6 +151,19 @@ public class MainActivity extends AppCompatActivity implements
         wrongCharView.setMovementMethod(new ScrollingMovementMethod());
         keyWordView = (TextView) findViewById(R.id.key_text);
         turnIndicator = (TextView) findViewById(R.id.turn_indicator);
+
+        discoveryTimer = new CountDownTimer(DISCOVER_TIMEOUT, 1000) {
+            @Override
+            public void onTick(long untilFinished) {}
+
+            @Override
+            public void onFinish() {
+                if (mState == STATE_DISCOVERING) {
+                    updateViewVisibility(STATE_READY);
+                    displayText("Discovery timed out");
+                }
+            }
+        };
     }
 
     public class MyEndpointAdapter extends ArrayAdapter<Endpoint> {
@@ -202,15 +218,16 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onStart() {
         super.onStart();
-        mGoogleApiClient.connect();
 
         AlertDialog.Builder nameDialog = new AlertDialog.Builder(this);
         nameDialog.setTitle("Display Name");
+        nameDialog.setCancelable(false);
         nameDialog.setMessage("Set a custom display name for others to see?");
                 nameDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         dialogInterface.cancel();
+                        mGoogleApiClient.connect();
                     }
                 });
 
@@ -227,35 +244,43 @@ public class MainActivity extends AppCompatActivity implements
                 String text = input.getText().toString();
                 if (text != "")
                     mName = text;
+
+                mGoogleApiClient.connect();
             }
         });
 
         nameDialog.show();
 
+        gameData = new HangmanData();
+
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         notification = MediaPlayer.create(MainActivity.this, R.raw.next_turn);
-        notification.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        notification.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
 
         success = MediaPlayer.create(MainActivity.this, R.raw.success);
-        success.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        success.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
 
         failure = MediaPlayer.create(MainActivity.this, R.raw.success);
-        failure.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        failure.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
     }
 
     public void onStop() {
-        super.onStop();
-
         if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
             mGoogleApiClient.disconnect();
+            displayText("Client disconnected");
         }
+
+        super.onStop();
     }
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        debugLog("onConnected");
+        displayText("onConnected");
         updateViewVisibility(STATE_READY);
+
+        startAdvertising();
+        startDiscovery();
     }
 
     @Override
@@ -270,6 +295,7 @@ public class MainActivity extends AppCompatActivity implements
         return info != null && info.isConnected();
     }
 
+    boolean advertising = false;
     private void startAdvertising() {
         if (!isConnectedToNetwork()) {
             debugLog("startAdvertising: Not connected to network");
@@ -289,8 +315,8 @@ public class MainActivity extends AppCompatActivity implements
                     @Override
                     public void onResult(Connections.StartAdvertisingResult result) {
                         if (result.getStatus().isSuccess()) {
+                            advertising = true;
                             debugLog("startAdvertising:onResult: SUCCESS");
-                            updateViewVisibility(STATE_ADVERTISING);
                             displayText("Started advertising");
                         } else {
                             debugLog("startAdvertising:onResult: FAILURE ");
@@ -300,6 +326,7 @@ public class MainActivity extends AppCompatActivity implements
                                 debugLog("Already advertising");
                                 displayText("Already advertising");
                             } else {
+                                advertising = false;
                                 updateViewVisibility(STATE_READY);
                             }
                         }
@@ -317,8 +344,6 @@ public class MainActivity extends AppCompatActivity implements
         myEndpoints.clear();
         updateEndpointList();
 
-        long DISCOVER_TIMEOUT = 1000L;
-
         Nearby.Connections.startDiscovery(mGoogleApiClient, serviceId, DISCOVER_TIMEOUT, this)
                 .setResultCallback(new ResultCallback<Status>() {
                     @Override
@@ -326,8 +351,12 @@ public class MainActivity extends AppCompatActivity implements
                         if (status.isSuccess()) {
                             debugLog("startDiscovery:onResult: SUCCESS");
                             updateViewVisibility(STATE_DISCOVERING);
+
+                            discoveryTimer.start();
+//                            if (!advertising)
+                                startAdvertising();
                         } else {
-                            debugLog("startAdvertising:onResult: FAILURE ");
+                            debugLog("startDiscovery:onResult: FAILURE ");
 
                             int statusCode = status.getStatusCode();
                             if (statusCode == ConnectionsStatusCodes.STATUS_ALREADY_DISCOVERING){
@@ -342,17 +371,21 @@ public class MainActivity extends AppCompatActivity implements
 
     private void sendMessage() {
         String msg = mMessageText.getText().toString();
-        Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, msg.getBytes());
+
+        if (!msg.isEmpty()) {
+            Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, msg.getBytes());
+            displayText("Message sent: " + msg);
+        }
     }
 
     private void sendMessage(byte[] payload) {
         debugLog("Sending message: " + new String(payload));
-
         Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, payload);
     }
 
     private void sendMessage(String message) {
         debugLog("Sending message: " + message);
+        displayText("Sending message: " + message);
         Nearby.Connections.sendReliableMessage(mGoogleApiClient, mOtherEndpointId, message.getBytes());
     }
 
@@ -362,32 +395,41 @@ public class MainActivity extends AppCompatActivity implements
         notification.start();
 
         String s = new String(payload);
+        debugLog("Message Received: " + s);
+
         if (s.charAt(0) == '0') {
-            debugLog("Message Received: " + s);
-            deserialize(s);
+            gameData.deserialize(s);
+            if (gameData.mostRecent != ' ') {
+                String message = mOtherEndpointName + " picked the letter " + gameData.mostRecent;
+                if (gameData.wrongChars.contains(gameData.mostRecent))
+                    message += " incorrectly";
+                else
+                    message += " correctly";
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+            }
             hasTurn = true;
             updateGameView();
             checkWinOrLose();
+        } else if (s.equals("restart")) {
+            displayText("Game restarted");
         } else {
-            debugLog("Message Received: " + s);
+            mGameText.append("\nMessage from " + mOtherEndpointName + ": " + s);
         }
     }
 
     public void connectTo(String endpointId, final String endpointName) {
-        displayText("Sending connection request");
+        displayText("Sending connection request to " + endpointId);
 
-        String myName = null;
         byte[] myPayload = null;
 
-        Nearby.Connections.sendConnectionRequest(mGoogleApiClient, myName, endpointId, myPayload,
+        mIsHost = false;
+        Nearby.Connections.sendConnectionRequest(mGoogleApiClient, mName, endpointId, myPayload,
                 new Connections.ConnectionResponseCallback(){
                     @Override
                     public void onConnectionResponse(String endpointId, Status status, byte[] bytes) {
                         debugLog("onConnectionResponse: " + endpointId + ", " + status);
                         if (status.isSuccess()) {
                             debugLog("onConnectionResponse: " + endpointId + " SUCCESS");
-//                            Toast.makeText(MainActivity.this, "Connected to " + endpointName,
-//                                    Toast.LENGTH_SHORT).show();
                             displayText("Successfully connected to " + endpointName);
 
                             mOtherEndpointId = endpointId;
@@ -396,8 +438,8 @@ public class MainActivity extends AppCompatActivity implements
                             startGame();
                             updateViewVisibility(STATE_CONNECTED);
                         } else {
-                            debugLog("onConnectionResponse: " + endpointId + "FAILED");
-                            displayText("Connection request to " + endpointName + "rejected");
+                            displayText("Connection request to " + endpointName + " rejected");
+                            mIsHost = false;
                         }
                     }
                 }, this);
@@ -427,9 +469,6 @@ public class MainActivity extends AppCompatActivity implements
                                     public void onResult(@NonNull Status status) {
                                         if (status.isSuccess()) {
                                             debugLog("acceptConnectionRequest: SUCCESS");
-//                                            Toast.makeText(MainActivity.this,
-//                                                    "Connected to " + endpointName,
-//                                                    Toast.LENGTH_SHORT).show();
                                             displayText("Successfully connected to " + endpointName);
                                             mIsHost = false;
                                             mOtherEndpointId = endpointId;
@@ -459,8 +498,6 @@ public class MainActivity extends AppCompatActivity implements
                  startAdvertising();
                 break;
             case R.id.button_discover:
-                 vibrator.vibrate(400L);
-                 notification.start();
                  startDiscovery();
                 break;
             case R.id.button_send:
@@ -469,14 +506,27 @@ public class MainActivity extends AppCompatActivity implements
             case R.id.button_guess:
                  checkGuess();
                 break;
+            case R.id.button_restart:
+                 displayText("Restart button pressed");
+                 restartGame();
+                break;
         }
     }
 
     private void startGame() {
-        gameData = new HangmanData();
+        findViewById(R.id.button_restart).setVisibility(View.GONE);
+        gameData.restart();
         if (mIsHost) {
-            sendMessage(serialize());
+            sendMessage(gameData.serialize());
         }
+        updateGameView();
+    }
+
+    private void restartGame() {
+        findViewById(R.id.button_restart).setVisibility(View.GONE);
+        gameData.restart();
+        sendMessage(gameData.serialize());
+        sendMessage("restart");
         updateGameView();
     }
 
@@ -488,14 +538,14 @@ public class MainActivity extends AppCompatActivity implements
 
         Iterator<Character> iterator = gameData.wrongChars.iterator();
         while (iterator.hasNext()) {
-            if (iterator.next() == guess) {
+            if (iterator.next().equals(guess)) {
                 alreadyGuessed = true;
             }
         }
 
         iterator = gameData.rightChars.iterator();
         while (iterator.hasNext()) {
-            if (iterator.next() == guess) {
+            if (iterator.next().equals(guess)) {
                 alreadyGuessed = true;
             }
         }
@@ -505,14 +555,15 @@ public class MainActivity extends AppCompatActivity implements
             return;
         } else {
             String feedback = "You picked " + guess;
-            mostRecent = guess;
+            gameData.mostRecent = guess;
             if (isCorrect(guess)) {
                 Toast.makeText(MainActivity.this, feedback + " correctly", Toast.LENGTH_SHORT).show();
                 gameData.rightChars.add(guess);
             } else {
                 Toast.makeText(MainActivity.this, feedback + " incorrectly", Toast.LENGTH_SHORT).show();
                 gameData.wrongChars.add(guess);
-                gameData.imageIndex++;
+                if (gameData.imageIndex < 10)
+                    gameData.imageIndex++;
             }
 
             nextTurn();
@@ -532,15 +583,16 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void nextTurn() {
+        guessText.setText("");
         hasTurn = false;
-        sendMessage(serialize());
+        sendMessage(gameData.serialize());
         updateGameView();
         checkWinOrLose();
     }
 
     void checkWinOrLose() {
         boolean lost = false;
-        if (gameData.imageIndex > 10) {
+        if (gameData.imageIndex == 10) {
             lost = true;
         }
 
@@ -556,57 +608,24 @@ public class MainActivity extends AppCompatActivity implements
             findViewById(R.id.guess_text).setEnabled(false);
             findViewById(R.id.button_guess).setEnabled(false);
 
+            String endText;
             if (won) {
                 success.start();
-                turnIndicator.setText("you won");
+                endText = "you won";
             }
-            else if (lost) {
+            else {
                 failure.start();
-                turnIndicator.setText("you lost");
+                endText = "you lost";
             }
+
+            if (mIsHost) {
+                findViewById(R.id.button_restart).setVisibility(View.VISIBLE);
+            } else {
+                endText += ". Waiting for other player to restart";
+            }
+
+            turnIndicator.setText(endText);
         }
-    }
-
-    private byte[] serialize() {
-        String s = "0";
-        s+= Integer.toString(gameData.imageIndex);
-        s+= Integer.toString(gameData.wordIndex);
-
-        Iterator<Character> iterator = gameData.wrongChars.iterator();
-        while (iterator.hasNext()) {
-            s += iterator.next();
-        }
-
-        s+= " ";
-
-        iterator = gameData.rightChars.iterator();
-        while(iterator.hasNext()) {
-            s += iterator.next();
-        }
-        s += "/";
-
-        s += mostRecent;
-
-        return s.getBytes();
-    }
-
-    private void deserialize(String s) {
-        int i = 0;
-        gameData.imageIndex = (Character.getNumericValue(s.charAt(++i)));
-        gameData.wordIndex = (Character.getNumericValue(s.charAt(++i)));
-
-        gameData.wrongChars.clear();
-        while (s.charAt(++i) != ' ') {
-            gameData.wrongChars.add(s.charAt(i));
-        }
-
-        gameData.rightChars.clear();
-        while(s.charAt(++i) != '/') {
-            gameData.rightChars.add(s.charAt(i));
-        }
-
-        mostRecent = s.charAt(++i);
-        Toast.makeText(this, mOtherEndpointName + " picked the letter " + mostRecent, Toast.LENGTH_SHORT).show();
     }
 
     private void updateViewVisibility(int newState) {
@@ -663,7 +682,6 @@ public class MainActivity extends AppCompatActivity implements
         notification.start();
         myEndpoints.add(new Endpoint(endpointId, endpointName, deviceId, serviceId));
         updateEndpointList();
-        findViewById(R.id.loadingPanel).setVisibility(View.GONE);
     }
 
     @Override
@@ -680,6 +698,7 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onDisconnected(String endpointId) {
         debugLog("onDisconnected:" + endpointId);
+        displayText("Lost connection with " + mOtherEndpointName);
         updateViewVisibility(STATE_READY);
     }
 
@@ -710,7 +729,7 @@ public class MainActivity extends AppCompatActivity implements
             iterator = gameData.rightChars.iterator();
             while (iterator.hasNext()) {
                 Character c = iterator.next();
-                if (c == keywordChar) {
+                if (c.equals(keywordChar)) {
                     placeholder = c;
                 }
             }
