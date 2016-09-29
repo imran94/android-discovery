@@ -48,6 +48,7 @@ import com.google.android.gms.nearby.connection.Connections;
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -79,7 +80,7 @@ public class MainActivity extends AppCompatActivity implements
     private static final int STATE_CONNECTED = 1027;    // Found a peer
 
     // Connecting to the Nearby Connections API
-    public static GoogleApiClient mGoogleApiClient;
+    public GoogleApiClient mGoogleApiClient;
 
     // Displaying found endpoints
     private ListView endpointList;
@@ -256,18 +257,20 @@ public class MainActivity extends AppCompatActivity implements
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         notification = MediaPlayer.create(MainActivity.this, R.raw.next_turn);
-        notification.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
+        notification.setAudioStreamType(AudioManager.STREAM_MUSIC);
 
         success = MediaPlayer.create(MainActivity.this, R.raw.success);
-        success.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
+        success.setAudioStreamType(AudioManager.STREAM_MUSIC);
 
         failure = MediaPlayer.create(MainActivity.this, R.raw.success);
-        failure.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
+        failure.setAudioStreamType(AudioManager.STREAM_MUSIC);
     }
 
     public void onStop() {
         if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+            Nearby.Connections.stopAdvertising(mGoogleApiClient);
             mGoogleApiClient.disconnect();
+//            mGoogleApiClient = null;
             displayText("Client disconnected");
         }
 
@@ -276,9 +279,8 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        displayText("onConnected");
+        displayText("onConnected: " + Nearby.Connections.getLocalEndpointId(mGoogleApiClient));
         updateViewVisibility(STATE_READY);
-
         startAdvertising();
         startDiscovery();
     }
@@ -299,7 +301,7 @@ public class MainActivity extends AppCompatActivity implements
     private void startAdvertising() {
         if (!isConnectedToNetwork()) {
             debugLog("startAdvertising: Not connected to network");
-            displayText("Not connected. Please connect to a network first");
+            displayText("Not connected to a network");
             return;
         }
 
@@ -317,14 +319,13 @@ public class MainActivity extends AppCompatActivity implements
                         if (result.getStatus().isSuccess()) {
                             advertising = true;
                             debugLog("startAdvertising:onResult: SUCCESS");
-                            displayText("Started advertising");
+//                            displayText("Started advertising");
                         } else {
                             debugLog("startAdvertising:onResult: FAILURE ");
 
                             int statusCode = result.getStatus().getStatusCode();
                             if (statusCode == ConnectionsStatusCodes.STATUS_ALREADY_ADVERTISING){
                                 debugLog("Already advertising");
-                                displayText("Already advertising");
                             } else {
                                 advertising = false;
                                 updateViewVisibility(STATE_READY);
@@ -336,7 +337,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private void startDiscovery() {
         if (!isConnectedToNetwork()) {
-            displayText("Please connect to a network first");
+            displayText("Not connected to a network");
             return;
         }
 
@@ -408,8 +409,8 @@ public class MainActivity extends AppCompatActivity implements
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
             }
             hasTurn = true;
-            updateGameView();
             checkWinOrLose();
+            updateGameView();
         } else if (s.equals("restart")) {
             displayText("Game restarted");
         } else {
@@ -438,7 +439,14 @@ public class MainActivity extends AppCompatActivity implements
                             startGame();
                             updateViewVisibility(STATE_CONNECTED);
                         } else {
-                            displayText("Connection request to " + endpointName + " rejected");
+                            int statusCode = status.getStatusCode();
+                            debugLog("Connection request failed, error: " + statusCode);
+
+                            if (statusCode == ConnectionsStatusCodes.STATUS_NOT_CONNECTED_TO_ENDPOINT) {
+                                displayText("Connection Request failed. Remote endpoint not connected to network");
+                            } else if (statusCode == ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED) {
+                                displayText("Connection request to " + endpointName + " rejected");
+                            }
                             mIsHost = false;
                         }
                     }
@@ -507,7 +515,6 @@ public class MainActivity extends AppCompatActivity implements
                  checkGuess();
                 break;
             case R.id.button_restart:
-                 displayText("Restart button pressed");
                  restartGame();
                 break;
         }
@@ -585,9 +592,9 @@ public class MainActivity extends AppCompatActivity implements
     private void nextTurn() {
         guessText.setText("");
         hasTurn = false;
-        sendMessage(gameData.serialize());
-        updateGameView();
         checkWinOrLose();
+        updateGameView();
+        sendMessage(gameData.serialize());
     }
 
     void checkWinOrLose() {
@@ -697,6 +704,7 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onDisconnected(String endpointId) {
+        Nearby.Connections.disconnectFromEndpoint(mGoogleApiClient, endpointId);
         debugLog("onDisconnected:" + endpointId);
         displayText("Lost connection with " + mOtherEndpointName);
         updateViewVisibility(STATE_READY);
