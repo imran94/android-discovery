@@ -14,8 +14,10 @@ public class HangmanData extends Object {
 
     public int imageIndex;
     public int wordIndex;
+
     public SortedSet<Character> rightChars;
     public SortedSet<Character> wrongChars;
+    
     public char mostRecent;
     Random rand = new Random();
 
